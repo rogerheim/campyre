@@ -8,6 +8,7 @@ import android.app.ListActivity;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -214,7 +215,11 @@ public class RoomList extends ListActivity {
 				
 			Room room = getItem(position);
 			((TextView) view.findViewById(R.id.name)).setText(room.name);
-			if ( room.topic != null ) {
+
+            //  If the room topic not empty and does not equal 'null', show the topic. Otherwise
+            //  show no topic message.
+            if (!TextUtils.isEmpty(room.topic) && !room.topic.equalsIgnoreCase("null")) {
+//			if ( room.topic != null ) {
 				((TextView) view.findViewById(R.id.topic)).setText(room.topic);
 			} else {
 				((TextView) view.findViewById(R.id.topic)).setText(R.string.room_has_no_topic);
