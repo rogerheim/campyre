@@ -6,6 +6,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 
+import android.util.Log;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.impl.cookie.DateParseException;
@@ -15,7 +16,8 @@ import org.json.JSONObject;
 
 public class Room implements Comparable<Room>, Serializable {
 	private static final long serialVersionUID = 1L;
-	
+	private static final String LOG_TAG = "Campyre";
+
 	public String id, name, topic;
 	public boolean full = false;
 	public Campfire campfire;
@@ -29,6 +31,9 @@ public class Room implements Comparable<Room>, Serializable {
 	}
 	
 	protected Room(Campfire campfire, JSONObject json) throws JSONException {
+        
+        Log.d(LOG_TAG, json.toString());
+        
 		this.campfire = campfire;
 		this.id = json.getString("id");
 		this.name = json.getString("name");
@@ -36,7 +41,8 @@ public class Room implements Comparable<Room>, Serializable {
 		
 		if (json.has("full"))
 			this.full = json.getBoolean("full");
-		
+
+
 		if (json.has("users")) {
 			initialUsers = new ArrayList<User>();
 			JSONArray users = json.getJSONArray("users");

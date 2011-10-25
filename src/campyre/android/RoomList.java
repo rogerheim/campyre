@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.ListActivity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -22,8 +23,9 @@ import android.widget.TextView;
 import campyre.java.Campfire;
 import campyre.java.CampfireException;
 import campyre.java.Room;
+import campyre.java.User;
 
-public class RoomList extends ListActivity { 
+public class RoomList extends ListActivity {
 	private static final int MENU_SETTINGS = 0;
 	private static final int MENU_CLEAR = 1;
 	private static final int MENU_ABOUT = 2;
@@ -34,7 +36,8 @@ public class RoomList extends ListActivity {
 	private ArrayList<Room> rooms = null;
 	
 	private LoadRoomsTask loadRoomsTask = null;
-	
+	private ArrayList<FindRoomTask> findRoomTasks = new ArrayList<FindRoomTask>();
+    
 	private boolean forResult = false;
 	private String shareText = null;
 	
@@ -196,36 +199,89 @@ public class RoomList extends ListActivity {
 	protected Dialog onCreateDialog(int id) { 
 		return id == Utils.ABOUT ? Utils.aboutDialog(this) : null;
 	}
-    
-    private class RoomAdapter extends ArrayAdapter<Room> {
+
+    private class RoomAdapter extends ArrayAdapter<Room> implements FindRoomTask.FindsRoom {
     	LayoutInflater inflater;
 
         public RoomAdapter(Activity context, ArrayList<Room> items) {
             super(context, 0, items);
             inflater = LayoutInflater.from(context);
+            //  The rooms query doesn't return a list of users in the room.
+            for (Room room : items) {
+                new FindRoomTask(this, room.id).execute(room.id);
+            }
         }
 
+        
 		public View getView(int position, View convertView, ViewGroup parent) {
 			LinearLayout view;
-			
-			if (convertView == null)
+			RoomViewHolder roomViewHolder;
+            
+			if (convertView == null) {
 				view = (LinearLayout) inflater.inflate(R.layout.room_item, null);
-			else
+                roomViewHolder = new RoomViewHolder();
+                roomViewHolder.roomNameTV = ((TextView)view.findViewById(R.id.name));
+                roomViewHolder.roomTopicTV = ((TextView)view.findViewById(R.id.topic));
+                roomViewHolder.roomUsersTV = ((TextView)view.findViewById(R.id.room_users));
+                view.setTag(roomViewHolder);
+            
+            } else {
 				view = (LinearLayout) convertView;
-				
+                roomViewHolder = (RoomViewHolder)view.getTag();
+            }
+            
 			Room room = getItem(position);
-			((TextView) view.findViewById(R.id.name)).setText(room.name);
+			roomViewHolder.roomNameTV.setText(room.name);
 
             //  If the room topic not empty and does not equal 'null', show the topic. Otherwise
             //  show no topic message.
             if (!TextUtils.isEmpty(room.topic) && !room.topic.equalsIgnoreCase("null")) {
-//			if ( room.topic != null ) {
-				((TextView) view.findViewById(R.id.topic)).setText(room.topic);
+                roomViewHolder.roomTopicTV.setText(room.topic);
 			} else {
-				((TextView) view.findViewById(R.id.topic)).setText(R.string.room_has_no_topic);
+                roomViewHolder.roomTopicTV.setText(R.string.room_has_no_topic);
 			}
-			return view;
+
+            if (room.initialUsers != null && room.initialUsers.size() > 0) {
+                StringBuilder usersb = new StringBuilder();
+                boolean addComma = false;
+                for (User u : room.initialUsers) {
+                    if (addComma) {
+                        usersb.append(", ");
+                    }
+                    addComma = true;
+                    usersb.append(u.displayName());
+                }
+                roomViewHolder.roomUsersTV.setText(usersb.toString());
+            } else {
+                roomViewHolder.roomUsersTV.setText("Empty");
+            }
+
+
+            return view;
 		}
+
+        @Override
+        public void onFoundRoom(Room room, Object tag) {
+            for (int i = 0; i < this.getCount(); i++) {
+                Room foundRoom = this.getItem(i);
+                if (foundRoom.id.equals(room.id)) {
+                    foundRoom.initialUsers = room.initialUsers;
+                    notifyDataSetChanged();
+                }
+            }
+
+        }
+
+        @Override
+        public Campfire getCampfire() {
+            return RoomList.this.campfire;
+        }
+    }
+    
+    static class RoomViewHolder {
+        public TextView roomNameTV;
+        public TextView roomTopicTV;
+        public TextView roomUsersTV;
     }
     
     private class LoadRoomsTask extends AsyncTask<Void,Void,ArrayList<Room>> {
@@ -245,6 +301,7 @@ public class RoomList extends ListActivity {
        	@Override
     	protected ArrayList<Room> doInBackground(Void... nothing) {
     		try {
+                // rooms path doesn't load users
 				return Room.all(context.campfire);
 			} catch (CampfireException e) {
 				this.exception = e;
